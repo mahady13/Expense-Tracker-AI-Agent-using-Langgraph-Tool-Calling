@@ -55,6 +55,18 @@ def add_expense(user_id:str,amount:float,category:str,description:str,date:str):
     connection.close()
     return f"Expense {expense} added successfully"
 
+def list_expenses(user_id:str):
+    connection=get_connection()
+    cursor=connection.cursor()
+    cursor.execute(
+        """
+        SELECT expense_id, amount, category, description, date FROM expenses WHERE user_id=? ORDER BY expense_id
+        """,(user_id,)
+    )
+    expenses=cursor.fetchall()
+    connection.close()
+    return expenses
+
 def get_expenses(user_id:str,expense_id):
     connection=get_connection()
     cursor=connection.cursor()
@@ -76,13 +88,13 @@ def get_summary(user_id:str,category:str|None=None):
         if category:
             cursor.execute(
                 """
-                SELECT category,SUM(amount) FROM expenses WHERE category=? AND user_id=?
+                SELECT category,SUM(amount) FROM expenses WHERE category=? AND user_id=? GROUP BY category
                 """,(category,user_id)
             )
         else:
             cursor.execute(
                 """
-                SELECT category,SUM(amount) FROM expenses WHERE user_id=?
+                SELECT category,SUM(amount) FROM expenses WHERE user_id=? GROUP BY category
                 """,(user_id,)
             )
         expense=cursor.fetchall()
@@ -125,7 +137,7 @@ def add_expense_tool(amount:float,category:str,description:str,date:str,config:R
 
 @tool
 def get_expense_tool(expense_id:str,config:RunnableConfig):
-    """Get expense tool"""
+    """Get single expense tool"""
 
     user_id=config["configurable"]["user_id"]
 
@@ -147,7 +159,24 @@ def delete_expense_tool(expense_id:str,config:RunnableConfig):
         return {f"{expense_id} is ready for deletion"}
     return {f"{expense_id} is not available or user has no authority"}
 
-tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool]
+@tool
+def list_all_expenses_tool(config:RunnableConfig):
+    """List every individual expense recorded for the current user.
+
+    Use this tool when the user asks to:
+    - show all expenses
+    - list all expenses
+    - see my expenses
+    - show my expense history
+
+    Do NOT use get_summary_tool for these requests."""
+    print("list expesnses tool called")
+    user_id=config["configurable"]["user_id"]
+    result=list_expenses(user_id)
+    print("result:",result)
+    return result
+
+tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool,list_all_expenses_tool]
 
 #llm
 llm=ChatOpenAI(
@@ -159,30 +188,31 @@ llm=ChatOpenAI(
 )
 
 llm_with_tools=llm.bind_tools(tools)
-
-system_message="""
+print("AVAILABLE TOOLS:")
+for t in tools:
+    print(t.name)
+system_message = """
 You are an expense management assistant.
 
-You can:
-- add expenses
-- retrieve expenses
-- show summaries
-- delete expenses
-
 Rules:
-- When the user describes an expense, ALWAYS use add_expense_tool.
-- Infer category and description from the user's message.
-- If the date is not provided, use today's date.
-- Never invent expense IDs.
-- Use tools when needed.
+- Use tools for expense data. Never invent expenses or IDs.
+- Use list_expenses_tool for listing/viewing expense history.
+- Use get_summary_tool for totals and summaries.
+- Use get_expense_tool for a specific expense ID.
+- Use add_expense_tool only when the user explicitly asks to add an expense.
+- All amounts are in BDT/TK, never USD.
 - Keep responses concise.
 """
 
 async def call_llm(state:AgentState):
+    print("🔥🔥 CALL_LLM WAS CALLED 🔥🔥")
     message=[SystemMessage(content=system_message),*state["messages"][-4:]]
 
     response=await llm_with_tools.ainvoke(message)
 
+    print("LLM RESPONSE:", response)
+    print("TOOL CALLS:", response.tool_calls)
+    
     return {"messages":[response]}
 
 def delete_request(state:AgentState,config:RunnableConfig):
@@ -284,6 +314,7 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat(request:ChatRequest):
+    print("🔥 CHAT ENDPOINT REACHED")
     if request.thread_id:
         thread_id=request.thread_id
     else:
