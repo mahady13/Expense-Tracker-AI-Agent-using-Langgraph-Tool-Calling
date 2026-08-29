@@ -2,7 +2,7 @@ FROM python:3.13
 
 WORKDIR /streamlit
 
-COPY requiremetns.txt .
+COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
