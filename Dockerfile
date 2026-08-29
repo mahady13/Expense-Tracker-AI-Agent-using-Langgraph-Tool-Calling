@@ -2,10 +2,12 @@ FROM python:3.13
 
 WORKDIR /streamlit
 
-COPY . /streamlit
+COPY requiremetns.txt .
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 8502
+COPY . .
 
-CMD ["streamlit","run","streamlit.py"]
+EXPOSE 10000
+
+CMD ["sh","-c","streamlit run streamlit.py --server.port=$PORT --server.address=0.0.0.0"]

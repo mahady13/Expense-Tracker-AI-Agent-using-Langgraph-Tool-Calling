@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: expense-tracker
+    runtime: image
+    image: 
+      url: docker.io/mahady13/expense_tracker_ai_agent:latest
+    plan: free
