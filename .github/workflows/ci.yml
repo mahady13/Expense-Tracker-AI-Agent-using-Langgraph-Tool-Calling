@@ -1,0 +1,31 @@
+on:
+  push:
+    branches:
+      - main
+    pull_request:
+    branches:
+      - main
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up python
+        uses: actions/setup-python@v5
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check python syntax
+        run: |
+          python -m py_compile allinone.py
+          python -m py_compile streamlit.py
+
+      - name: Build docker image
+        run: |
+          docker build -t mahady13/expense_tracker_ai_agent:latest .
