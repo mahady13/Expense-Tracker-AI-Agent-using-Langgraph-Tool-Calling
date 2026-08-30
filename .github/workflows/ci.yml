@@ -40,6 +40,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
             context: .
+            file: Dockerfile.backend
             push: true
             tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_backend:latest
 
@@ -48,6 +49,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
             context: .
+            file: Dockerfile
             push: true
             tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_frontend:latest
 
