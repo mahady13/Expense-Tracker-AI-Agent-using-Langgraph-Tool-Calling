@@ -297,14 +297,24 @@ builder.add_conditional_edges("confirm_delete",route_after_delete,{
 builder.add_edge("execute_delete","llm")
 builder.add_edge("cancel_delete","llm")
 
-checkpoint_connection=aiosqlite.connect("checkpoint.db",check_same_thread=False)
 
-checkpointer=AsyncSqliteSaver(checkpoint_connection)
+from contextlib import asynccontextmanager
+checkpoint_connection=None
+checkpointer=None
+graph=None
 
-graph=builder.compile(checkpointer=checkpointer)
+async def lifespan(app:FastAPI):
+    global checkpoint_connection,checkpointer,graph
+    checkpoint_connection=await aiosqlite.connect("checkpoint.db",check_same_thread=False)
 
+    checkpointer=AsyncSqliteSaver(checkpoint_connection)
+
+    graph=builder.compile(checkpointer=checkpointer)
+    yield
+    checkpoint_connection.close()
+    
 #fastapi
-app=FastAPI(title="Expense Tracker AI(Production Grade)")
+app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
 
 class ChatRequest(BaseModel):
     message:str
