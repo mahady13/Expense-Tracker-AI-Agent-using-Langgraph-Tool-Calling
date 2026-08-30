@@ -26,7 +26,7 @@ if user_input:
     })
 
     response = requests.post(
-        API_URL,
+        f"{API_URL}/chat",
         json={
             "thread_id": st.session_state.thread_id,
             "message": user_input,
