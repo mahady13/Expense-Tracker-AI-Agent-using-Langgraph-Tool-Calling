@@ -1,11 +1,12 @@
 import streamlit as st
 import requests
 import uuid
+import os
 
 st.title("Expense Tracker AI Assistant")
 
 
-API_URL="http://127.0.0.1:8000/chat"
+API_URL=os.getenv("API_URL")
 
 if "thread_id" not in st.session_state:
     st.session_state["thread_id"]=str(uuid.uuid4())

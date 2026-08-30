@@ -3,5 +3,14 @@ services:
     name: expense-tracker
     runtime: image
     image: 
-      url: docker.io/mahady13/expense_tracker_ai_agent:latest
+      url: docker.io/mahady13/expense_tracker_frontend:latest
+    plan: free
+
+
+
+  - type: web
+    name: expense-tracker-backend
+    runtime: image
+    image:
+      url: docker.io/mahady13/expense_tracker_backend:latest
     plan: free
