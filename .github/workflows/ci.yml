@@ -49,6 +49,6 @@ jobs:
         with:
             context: .
             push: true
-            tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_frontend:v2
+            tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_frontend:latest
 
   
