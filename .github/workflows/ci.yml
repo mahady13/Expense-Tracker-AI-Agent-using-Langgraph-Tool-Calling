@@ -40,4 +40,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
             context: .
-            tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_ai_agent:latest
+            push: true
+            tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_backend:latest
+
+      - name: Build and push docker image for frontend
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v7
+        with:
+            context: .
+            push: true
+            tags: ${{ secrets.DOCKER_USERNAME}}/expense_tracker_frontend:latest
