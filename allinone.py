@@ -302,7 +302,7 @@ from contextlib import asynccontextmanager
 checkpoint_connection=None
 checkpointer=None
 graph=None
-
+@asynccontextmanager
 async def lifespan(app:FastAPI):
     global checkpoint_connection,checkpointer,graph
     checkpoint_connection=await aiosqlite.connect("checkpoint.db",check_same_thread=False)
