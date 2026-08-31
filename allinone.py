@@ -188,9 +188,6 @@ llm=ChatOpenAI(
 )
 
 llm_with_tools=llm.bind_tools(tools)
-print("AVAILABLE TOOLS:")
-for t in tools:
-    print(t.name)
 system_message = """
 You are an expense management assistant.
 
@@ -205,13 +202,9 @@ Rules:
 """
 
 async def call_llm(state:AgentState):
-    print("🔥🔥 CALL_LLM WAS CALLED 🔥🔥")
     message=[SystemMessage(content=system_message),*state["messages"][-4:]]
 
     response=await llm_with_tools.ainvoke(message)
-
-    print("LLM RESPONSE:", response)
-    print("TOOL CALLS:", response.tool_calls)
     
     return {"messages":[response]}
 
