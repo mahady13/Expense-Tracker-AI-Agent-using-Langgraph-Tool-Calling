@@ -157,7 +157,7 @@ def delete_expense_tool(expense_id:str,config:RunnableConfig):
     result=get_expenses(user_id,expense_id)
     if result:
         return {f"{expense_id} is ready for deletion"}
-    return {f"{expense_id} is not available or user has no authority"}
+    return f"{expense_id} is not available or user has no authority"
 
 @tool
 def list_all_expenses_tool(config:RunnableConfig):
