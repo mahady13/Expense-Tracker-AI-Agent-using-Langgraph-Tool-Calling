@@ -67,7 +67,7 @@ def list_expenses(user_id:str):
     connection.close()
     return expenses
 
-def get_expenses(user_id:str,expense_id):
+def get_expenses(user_id:str,expense_id:int):
     connection=get_connection()
     cursor=connection.cursor()
 
