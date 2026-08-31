@@ -233,7 +233,7 @@ def delete_request(state:AgentState,config:RunnableConfig):
     return "tools"
 
 def confirm_delete(state:AgentState):
-    answer=langgraph.prebuilt.interrupt("Are you sure you want to delete this expense? Reply yes or no")
+    answer=interrupt("Are you sure you want to delete this expense? Reply yes or no")
     confirmed=(answer.lower().strip()=="yes")
 
     return {"confirmed":confirmed}
