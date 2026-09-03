@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 import sqlite3
 import langgraph
 import aiosqlite
-import cursor
+# import cursor
 from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.prebuilt import interrupt
@@ -371,6 +371,8 @@ async def chat(request:ChatRequest):
 
     except Exception as e:
         print(f"error: {str(e)}")
+        import traceback
+        traceback.print_exc() 
         return {
             "thread_id":thread_id,
             "status":"error",
