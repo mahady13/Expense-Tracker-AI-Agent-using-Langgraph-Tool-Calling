@@ -360,13 +360,13 @@ async def chat(request:ChatRequest):
                 return {
                     "thread_id":thread_id,
                     "status":"confirmation required",
-                    "message":result["__interrupt__"][0].value
+                    "message":result_state["__interrupt__"][0].value
                 }
 
             return {
                 "thread_id":thread_id,
                 "status":"completed",
-                "message":result["messages"][-1].content
+                "message":result_state["messages"][-1].content
             }
 
     except Exception as e:
