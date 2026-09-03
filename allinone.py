@@ -3,6 +3,7 @@ import uuid
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 import sqlite3
 import langgraph
 import aiosqlite
@@ -179,12 +180,19 @@ def list_all_expenses_tool(config:RunnableConfig):
 tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool,list_all_expenses_tool]
 
 #llm
-llm=ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    model="openrouter/free",
-    max_tokens=300,
-    temperature=0
+# llm=ChatOpenAI(
+#     base_url="https://openrouter.ai/api/v1",
+#     api_key=os.getenv("OPENROUTER_API_KEY"),
+#     model="openrouter/free",
+#     max_tokens=300,
+#     temperature=0 )
+
+llm = ChatGroq(
+    model="openai/gpt-oss-120b",
+    temperature=0.7,
+    max_tokens=400,
+    timeout=None,
+    max_retries=2,
 )
 
 llm_with_tools=llm.bind_tools(tools)
