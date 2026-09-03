@@ -9,7 +9,7 @@ import aiosqlite
 # import cursor
 from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
-from langgraph.prebuilt import interrupt
+from langgraph.types import interrupt
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from pydantic import BaseModel
