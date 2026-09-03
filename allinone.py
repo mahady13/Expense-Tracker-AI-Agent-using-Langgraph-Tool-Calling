@@ -103,7 +103,7 @@ def get_summary(user_id:str,category:str|None=None):
     else:
         return "Provide user id please"
 
-def delete_expense(user_id:str,expense_id:str):
+def delete_expense(user_id:str,expense_id:int):
     connection=get_connection()
     cursor=connection.cursor()
 
@@ -136,7 +136,7 @@ def add_expense_tool(amount:float,category:str,description:str,date:str,config:R
     return add_expense(user_id,amount,category,description,date)
 
 @tool
-def get_expense_tool(expense_id:str,config:RunnableConfig):
+def get_expense_tool(expense_id:int,config:RunnableConfig):
     """Get single expense tool"""
 
     user_id=config["configurable"]["user_id"]
@@ -151,7 +151,7 @@ def get_summary_tool(category:str|None=None,config:RunnableConfig=None):
     return get_summary(user_id,category)
 
 @tool
-def delete_expense_tool(expense_id:str,config:RunnableConfig):
+def delete_expense_tool(expense_id:int,config:RunnableConfig):
     """delete expense tool that prepares an expense for deletion"""
     user_id=config["configurable"]["user_id"]
     result=get_expenses(user_id,expense_id)
