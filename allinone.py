@@ -330,29 +330,49 @@ async def chat(request:ChatRequest):
         }
     }
 
-    state=await graph.aget_state(config)
-    if state.interrupts:
-        result=await graph.ainvoke(Command(resume=request.message),config=config)
+    try:
+        current_state=await graph.aget_state(config)
+        if current_state.interrupts:
+            result_state=await graph.ainvoke(Command(resume=request.message),config=config)
 
-    else:
-        result=await graph.ainvoke(
-            {"messages":[("user",request.message)],
-             "user_id":request.user_id,
-             "confirmed":False,
-             "notice":""},config=config
-        )
+            new_state=await graph.aget_state(config)
+            if new_state.interrupts:
+                return {
+                    "thread_id":thread_id,
+                    "status":"confirmation_required",
+                    "message":new_state.interrups[0].value
+                }
+            return {
+                "thread_id":thread_id,
+                "status":"completed",
+                "message":result_state["messages"][-1].content
+            }
+        else:
+            result_state=await graph.ainvoke(
+                {"messages":[("user",request.message)],
+                "user_id":request.user_id,
+                "confirmed":False,
+                "notice":""},config=config
+            )
 
-    if "__interrupt__" in result:
+            after_state=await graph.aget_state(config)
+            if after_state.interrupts:
+                return {
+                    "thread_id":thread_id,
+                    "status":"confirmation required",
+                    "message":result["__interrupt__"][0].value
+                }
+
+            return {
+                "thread_id":thread_id,
+                "status":"completed",
+                "message":result["messages"][-1].content
+            }
+
+    except Exception as e:
+        print(f"error: {str(e)}")
         return {
             "thread_id":thread_id,
-            "status":"confirmation required",
-            "message":result["__interrupt__"][0].value
+            "status":"error",
+            "message":f"Error occured : {str(e)}"
         }
-
-    return {
-        "thread_id":thread_id,
-        "status":"completed",
-        "message":result["messages"][-1].content
-    }
-
-

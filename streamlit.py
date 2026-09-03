@@ -3,7 +3,7 @@ import requests
 import uuid
 import os
 
-st.title("Expense Tracker AI Assistant")
+st.title("Expense Tracker AI Assistant v2")
 
 
 API_URL=os.getenv("API_URL")
