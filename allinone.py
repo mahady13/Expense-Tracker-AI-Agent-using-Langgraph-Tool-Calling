@@ -340,7 +340,7 @@ async def chat(request:ChatRequest):
                 return {
                     "thread_id":thread_id,
                     "status":"confirmation_required",
-                    "message":new_state.interrups[0].value
+                    "message":new_state.interrupts[0].value
                 }
             return {
                 "thread_id":thread_id,
@@ -360,7 +360,7 @@ async def chat(request:ChatRequest):
                 return {
                     "thread_id":thread_id,
                     "status":"confirmation required",
-                    "message":result_state["__interrupt__"][0].value
+                    "message":after_state.interrupts[0].value
                 }
 
             return {
