@@ -7,117 +7,217 @@ from langchain_groq import ChatGroq
 import sqlite3
 import langgraph
 import aiosqlite
-# import cursor
+import asyncpg
 from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.types import interrupt
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pydantic import BaseModel
 from fastapi import FastAPI
 from langgraph.types import RunnableConfig,Command
 
 load_dotenv()
 
-db_name="expenses.db"
-def get_connection():
-    return sqlite3.connect(db_name)
+DATABASE_URL=os.getenv("DATABASE_URL")
+class Database:
+    """
+    PostGresSql database handler for supabase
+    """
+    def __init__(self,dsn:str):
+        self.dsn=dsn
+        self._pool=None
 
-def create_database():
-    connection=get_connection()
-    cursor=connection.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS expenses(
-        expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        amount REAL NOT NULL,
-        category TEXT NOT NULL,
-        description TEXT,
-        date TEXT 
-        )
-        """
-    )
-    connection.commit()
-    connection.close()
 
-def add_expense(user_id:str,amount:float,category:str,description:str,date:str):
-    connection=get_connection()
-    cursor=connection.cursor()
-    cursor.execute(
-        """
-        INSERT INTO expenses(
-        user_id,amount,category,description,date)
-        VALUES (?,?,?,?,?)
-        """,(user_id,amount,category,description,date)
-    )
-    expense=cursor.lastrowid
-    connection.commit()
-    connection.close()
-    return f"Expense {expense} added successfully"
-
-def list_expenses(user_id:str):
-    connection=get_connection()
-    cursor=connection.cursor()
-    cursor.execute(
-        """
-        SELECT expense_id, amount, category, description, date FROM expenses WHERE user_id=? ORDER BY expense_id
-        """,(user_id,)
-    )
-    expenses=cursor.fetchall()
-    connection.close()
-    return expenses
-
-def get_expenses(user_id:str,expense_id:int):
-    connection=get_connection()
-    cursor=connection.cursor()
-
-    cursor.execute(
-        """
-        SELECT * FROM expenses WHERE expense_id=? AND user_id=?
-        """,(expense_id,user_id)
-    )
-    expense=cursor.fetchone()
-    connection.close()
-
-    return expense
-
-def get_summary(user_id:str,category:str|None=None):
-    connection=get_connection()
-    cursor=connection.cursor()
-    if user_id:
-        if category:
-            cursor.execute(
-                """
-                SELECT category,SUM(amount) FROM expenses WHERE category=? AND user_id=? GROUP BY category
-                """,(category,user_id)
+    async def connect(self):
+        """Create connection pool"""
+        if self._pool is None:
+            self._pool=await asyncpg.create_pool(
+                self.dsn,
+                min_size=1,
+                max_size=5,
+                command_timeout=30,
+                max_inactive_connection_lifetime=300
             )
-        else:
-            cursor.execute(
+            return self._pool
+    async def create_table(self):
+        """Create expense table in PostGresSql"""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
                 """
-                SELECT category,SUM(amount) FROM expenses WHERE user_id=? GROUP BY category
-                """,(user_id,)
+                CREATE TABLE IF NOT EXISTS expenses(
+                expense_id SERIAL PRIMARY KEY ,
+                user_id TEXT NOT NULL,
+                amount REAL NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL,
+                date TEXT NOT NULL
+                )
+                """
             )
-        expense=cursor.fetchall()
-        connection.close()
-        return expense
-    else:
-        return "Provide user id please"
+            print("table_created")
+    async def add_expense(self,user_id:str,amount:float,category:str,description:str,date:str):
+        async with self._pool.acquire() as conn:
+            result=await conn.fetchrow(
+                """ INSERT INTO expenses(user_id,amount,category,description,date)
+                VALUES($1,$2,$3,$4,$5) 
+                RETURNING expense_id""",user_id,amount,category,description,date
+            )
+            return f"Expense {result['expense_id']} created successfully"
 
-def delete_expense(user_id:str,expense_id:int):
-    connection=get_connection()
-    cursor=connection.cursor()
+    async def get_summary(self,user_id:str,category:str|None=None):
+        async with self._pool.acquire() as conn:
+            if category:
+                result=await conn.fetch(
+                    """
+                    SELECT category,SUM(amount) FROM expenses WHERE user_id=$1 AND category=$2
+                    """,user_id,category
+                )
+            else:
+                result=await conn.fetch(
+                    """
+                    SELECT category,SUM(amount) FROM expenses WHERE user_id=$1
+                    """,user_id
+                )
+            return result
 
-    cursor.execute(
-        """
-        DELETE FROM expenses WHERE expense_id=? AND user_id=?
-        """,(expense_id,user_id)
-    )
-    expense=cursor.rowcount>0
-    connection.commit()
-    connection.close()
-    return expense
-create_database()
+    async def get_expenses(self,user_id,expense_id:int):
+        async with self._pool.acquire() as conn:
+            result=await conn.fetchrow(
+                """
+                SELECT * FROM expenses WHERE user_id=$1 AND expense_id=$2
+                """,user_id,expense_id
+            )
+            return result
+    async def delete_expense(self,user_id:str,expense_id:int):
+        async with self._pool.acquire() as conn:
+            result=await conn.execute(
+                """
+                DELETE FROM expenses WHERE user_id=$1 AND expense_id=$2
+                """,user_id,expense_id
+            )
+            return result != "DELETE 0"
+
+    async def list_expenses(self,user_id:str):
+        async with self._pool.acquire() as conn:
+            results=await conn.fetch(
+                """
+                SELECT * FROM expenses WHERE user_id=$1
+                """,user_id
+            )
+        return [(result['expense_id'],result['amount'],result['category'],result['description'],result['date']) for result in results]
+
+    async def close(self):
+        if self._pool:
+            await self._pool.close()
+
+db=Database(DATABASE_URL)
+
+async def init_db():
+    await db.connect()
+    await db.create_table()
+
+
+
+# db_name="expenses.db"
+# def get_connection():
+#     return sqlite3.connect(db_name)
+
+# def create_database():
+#     connection=get_connection()
+#     cursor=connection.cursor()
+#     cursor.execute(
+#         """
+#         CREATE TABLE IF NOT EXISTS expenses(
+#         expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
+#         user_id TEXT NOT NULL,
+#         amount REAL NOT NULL,
+#         category TEXT NOT NULL,
+#         description TEXT,
+#         date TEXT 
+#         )
+#         """
+#     )
+#     connection.commit()
+#     connection.close()
+
+# def add_expense(user_id:str,amount:float,category:str,description:str,date:str):
+#     connection=get_connection()
+#     cursor=connection.cursor()
+#     cursor.execute(
+#         """
+#         INSERT INTO expenses(
+#         user_id,amount,category,description,date)
+#         VALUES (?,?,?,?,?)
+#         """,(user_id,amount,category,description,date)
+#     )
+#     expense=cursor.lastrowid
+#     connection.commit()
+#     connection.close()
+#     return f"Expense {expense} added successfully"
+
+# def list_expenses(user_id:str):
+#     connection=get_connection()
+#     cursor=connection.cursor()
+#     cursor.execute(
+#         """
+#         SELECT expense_id, amount, category, description, date FROM expenses WHERE user_id=? ORDER BY expense_id
+#         """,(user_id,)
+#     )
+#     expenses=cursor.fetchall()
+#     connection.close()
+#     return expenses
+
+# def get_expenses(user_id:str,expense_id:int):
+#     connection=get_connection()
+#     cursor=connection.cursor()
+
+#     cursor.execute(
+#         """
+#         SELECT * FROM expenses WHERE expense_id=? AND user_id=?
+#         """,(expense_id,user_id)
+#     )
+#     expense=cursor.fetchone()
+#     connection.close()
+
+#     return expense
+
+# def get_summary(user_id:str,category:str|None=None):
+#     connection=get_connection()
+#     cursor=connection.cursor()
+#     if user_id:
+#         if category:
+#             cursor.execute(
+#                 """
+#                 SELECT category,SUM(amount) FROM expenses WHERE category=? AND user_id=? GROUP BY category
+#                 """,(category,user_id)
+#             )
+#         else:
+#             cursor.execute(
+#                 """
+#                 SELECT category,SUM(amount) FROM expenses WHERE user_id=? GROUP BY category
+#                 """,(user_id,)
+#             )
+#         expense=cursor.fetchall()
+#         connection.close()
+#         return expense
+#     else:
+#         return "Provide user id please"
+
+# def delete_expense(user_id:str,expense_id:int):
+#     connection=get_connection()
+#     cursor=connection.cursor()
+
+#     cursor.execute(
+#         """
+#         DELETE FROM expenses WHERE expense_id=? AND user_id=?
+#         """,(expense_id,user_id)
+#     )
+#     expense=cursor.rowcount>0
+#     connection.commit()
+#     connection.close()
+#     return expense
+# create_database()
 
 #langgraph state
 
@@ -129,51 +229,43 @@ class AgentState(MessagesState):
 #tools
 
 @tool
-def add_expense_tool(amount:float,category:str,description:str,date:str,config:RunnableConfig):
+async def add_expense_tool(amount:float,category:str,description:str,date:str,config:RunnableConfig):
     """Add expense tool"""
 
     user_id=config["configurable"]["user_id"]
 
-    return add_expense(user_id,amount,category,description,date)
+    return await db.add_expense(user_id,amount,category,description,date)
 
 @tool
-def get_expense_tool(expense_id:int,config:RunnableConfig):
+async def get_expense_tool(expense_id:int,config:RunnableConfig):
     """Get single expense tool"""
 
     user_id=config["configurable"]["user_id"]
 
-    return get_expenses(user_id,expense_id)
+    return await db.get_expenses(user_id,expense_id)
 
 @tool
-def get_summary_tool(category:str|None=None,config:RunnableConfig=None):
+async def get_summary_tool(category:str|None=None,config:RunnableConfig=None):
     """get summary tool"""
     user_id=config["configurable"]["user_id"]
 
-    return get_summary(user_id,category)
+    return await db.get_summary(user_id,category)
 
 @tool
-def delete_expense_tool(expense_id:int,config:RunnableConfig):
+async def delete_expense_tool(expense_id:int,config:RunnableConfig):
     """delete expense tool that prepares an expense for deletion"""
     user_id=config["configurable"]["user_id"]
-    result=get_expenses(user_id,expense_id)
+    result=await db.get_expenses(user_id,expense_id)
     if result:
         return f"{expense_id} is ready for deletion"
     return f"{expense_id} is not available or user has no authority"
 
 @tool
-def list_all_expenses_tool(config:RunnableConfig):
-    """List every individual expense recorded for the current user.
+async def list_all_expenses_tool(config:RunnableConfig):
+    """List every individual expense recorded for the current user."""
 
-    Use this tool when the user asks to:
-    - show all expenses
-    - list all expenses
-    - see my expenses
-    - show my expense history
-
-    Do NOT use get_summary_tool for these requests."""
-    print("list expesnses tool called")
     user_id=config["configurable"]["user_id"]
-    result=list_expenses(user_id)
+    result=await db.list_expenses(user_id)
     print("result:",result)
     return result
 
@@ -225,12 +317,12 @@ def delete_request(state:AgentState,config:RunnableConfig):
             args=tool_call["args"]
             if "expense_id" not in args:
                 return "tools"
-            expense_id=args.get("expense_id")
-            user_id=config["configurable"]["user_id"]
-            available=get_expenses(user_id,expense_id)
-            if available:
-                return "confirm_delete"
-            return "tools"
+            # expense_id=args.get("expense_id")
+            # user_id=config["configurable"]["user_id"]
+            # available=await db.get_expenses(user_id,expense_id)
+            # if available:
+            #     return "confirm_delete"
+            return "confirm_delete"
     return "tools"
 
 def confirm_delete(state:AgentState):
@@ -244,7 +336,7 @@ def route_after_delete(state:AgentState):
         return "execute_delete"
     return "cancel_delete"
 
-def execute_delete(state:AgentState,config:RunnableConfig):
+async def execute_delete(state:AgentState,config:RunnableConfig):
     expense_id=None
     for message in reversed(state["messages"]):
         if hasattr(message,"tool_calls"):
@@ -252,6 +344,7 @@ def execute_delete(state:AgentState,config:RunnableConfig):
                 if tool_call["name"]=="delete_expense_tool":
                     args=tool_call["args"]
                     expense_id=args["expense_id"]
+                    
                     break
 
         if expense_id is not None:
@@ -263,7 +356,10 @@ def execute_delete(state:AgentState,config:RunnableConfig):
         }
 
     user_id=config["configurable"]["user_id"]
-    deleted=delete_expense(user_id,expense_id)
+    available=await db.get_expenses(user_id,expense_id)
+    if not available:
+        return {"messages": [("assistant", f"Expense {expense_id} not found")]}
+    deleted=await db.delete_expense(user_id,expense_id)
     if deleted:
         return {
             "messages":[("assistant",f"{expense_id} has been deleted")]
@@ -306,13 +402,14 @@ graph=None
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     global checkpoint_connection,checkpointer,graph
-    checkpoint_connection=await aiosqlite.connect("checkpoint.db",check_same_thread=False)
 
-    checkpointer=AsyncSqliteSaver(checkpoint_connection)
-
+    checkpointer=AsyncPostgresSaver.from_conn_string(DATABASE_URL)
+    await checkpointer.setup()
     graph=builder.compile(checkpointer=checkpointer)
+    await init_db()
     yield
-    checkpoint_connection.close()
+    await db.close()
+    await checkpointer.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
@@ -322,6 +419,17 @@ class ChatRequest(BaseModel):
     thread_id:str|None=None
     user_id:str
 
+
+@app.get("/health")
+async def health_check():
+    """SImple health check for render"""
+    try:
+        await db.connect()
+        async with db._pool.acquire() as conn:
+            await conn.fetch("SELECT 1")
+        return {"status":"healthy","database":"connected"}
+    except Exception as e:
+        return {"status":"not connected","database":f"error:{str(e)}"}
 
 @app.post("/chat")
 async def chat(request:ChatRequest):

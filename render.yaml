@@ -5,7 +5,8 @@ services:
     image: 
       url: docker.io/mahady13/expense_tracker_frontend:latest
     plan: free
-
+    healthCheckPath: /health
+    autoDeploy: true
 
 
   - type: web
@@ -14,3 +15,6 @@ services:
     image:
       url: docker.io/mahady13/expense_tracker_backend:latest
     plan: free
+
+    healthCheckPath: /health
+    autoDeploy: true
