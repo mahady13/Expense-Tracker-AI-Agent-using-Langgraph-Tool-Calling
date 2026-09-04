@@ -164,8 +164,13 @@ async def list_all_expenses_tool(config:RunnableConfig):
 
     user_id=config["configurable"]["user_id"]
     result=await db.list_expenses(user_id)
-    print("result:",result)
-    return result
+    if not result:
+        return "no expenses found"
+    formatted = "Your expenses:\n"
+    for expense in result:
+        formatted += f"- ID: {expense[0]}, Amount: {expense[1]}, Category: {expense[2]}, Description: {expense[3]}, Date: {expense[4]}\n"
+    
+    return formatted
 
 tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool,list_all_expenses_tool]
 
