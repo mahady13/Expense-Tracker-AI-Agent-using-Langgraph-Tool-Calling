@@ -38,7 +38,8 @@ class Database:
                 min_size=1,
                 max_size=5,
                 command_timeout=30,
-                max_inactive_connection_lifetime=300
+                max_inactive_connection_lifetime=300,
+                statement_cache_size=0
             )
             return self._pool
     async def create_table(self):
