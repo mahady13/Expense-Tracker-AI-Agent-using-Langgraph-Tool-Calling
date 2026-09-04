@@ -312,7 +312,6 @@ class SimpleSqliteSaver:
         conn.close()
 
 # In lifespan:
-from langgraph.checkpoint import MemorySaver
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
