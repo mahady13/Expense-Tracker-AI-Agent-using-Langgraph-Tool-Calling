@@ -64,9 +64,9 @@ def list_expenses(user_id:str):
         SELECT expense_id, amount, category, description, date FROM expenses WHERE user_id=? ORDER BY expense_id
         """,(user_id,)
     )
-    expenses=cursor.fetchall()
+    results=cursor.fetchall()
     connection.close()
-    return expenses
+    return results
 
 def get_expenses(user_id:str,expense_id:int):
     connection=get_connection()
@@ -162,20 +162,17 @@ def delete_expense_tool(expense_id:int,config:RunnableConfig):
 
 @tool
 def list_all_expenses_tool(config:RunnableConfig):
-    """List every individual expense recorded for the current user.
-
-    Use this tool when the user asks to:
-    - show all expenses
-    - list all expenses
-    - see my expenses
-    - show my expense history
-
-    Do NOT use get_summary_tool for these requests."""
+    """List every individual expense recorded for the current user."""
     print("list expesnses tool called")
     user_id=config["configurable"]["user_id"]
     result=list_expenses(user_id)
-    print("result:",result)
-    return result
+    if not result:
+        return "no expenses found"
+    formatted = "Your expenses:\n"
+    for expense in result:
+        formatted += f"- ID: {expense[0]}, Amount: {expense[1]}, Category: {expense[2]}, Description: {expense[3]}, Date: {expense[4]}\n"
+    
+    return formatted
 
 tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool,list_all_expenses_tool]
 
