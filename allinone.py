@@ -13,7 +13,8 @@ from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.types import interrupt
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver  
+import aiosqlite
 from pydantic import BaseModel
 from fastapi import FastAPI
 from langgraph.types import RunnableConfig,Command
@@ -287,21 +288,24 @@ builder.add_edge("execute_delete","llm")
 builder.add_edge("cancel_delete","llm")
 
 
-from contextlib import asynccontextmanager
-checkpoint_connection=None
-checkpointer=None
-graph=None
-@asynccontextmanager
-async def lifespan(app:FastAPI):
-    global checkpoint_connection,checkpointer,graph
 
-    connection = await asyncpg.connect(DATABASE_URL, statement_cache_size=0)
-    checkpointer = AsyncPostgresSaver(connection)
+
+checkpointer = None
+graph = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global checkpointer, graph
+    
+    checkpoint_connection = await aiosqlite.connect("checkpoint.db")
+    checkpointer = AsyncSqliteSaver(checkpoint_connection)
     await checkpointer.setup()
-    graph=builder.compile(checkpointer=checkpointer)
+    
+    graph = builder.compile(checkpointer=checkpointer)
     await init_db()
     yield
     await db.close()
+    await checkpoint_connection.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
