@@ -262,23 +262,6 @@ Confirm with user
 
 LangGraph checkpointing is used to maintain conversation/workflow state.
 
-## 🔐 Environment Variables
-
-API credentials should **never be committed to GitHub**.
-
-Create a local `.env` file:
-
-``` env
-OPENROUTER_API_KEY=your_key_here
-GROQ_API_KEY=your_key_here
-API_URL=http://127.0.0.1:8000
-```
-
-Only include the variables required by the LLM/provider configuration
-you are actually using.
-
-Make sure `.env` is included in `.gitignore`.
-
 ## ▶️ Run Locally
 
 ### 1. Clone the repository
