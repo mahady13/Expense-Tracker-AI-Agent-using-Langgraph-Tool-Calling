@@ -11,7 +11,7 @@ from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.types import interrupt
 from langgraph.prebuilt import ToolNode 
-from langgraph.checkpoint import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from fastapi import FastAPI
