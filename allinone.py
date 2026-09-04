@@ -295,8 +295,7 @@ graph=None
 async def lifespan(app:FastAPI):
     global checkpoint_connection,checkpointer,graph
 
-    # ✅ Option 2: Or create Postgres checkpointer with prepare_threshold=0
-    connection = await asyncpg.connect(DATABASE_URL, prepare_threshold=0)
+    connection = await asyncpg.connect(DATABASE_URL, statement_cache_size=0)
     checkpointer = AsyncPostgresSaver(connection)
     await checkpointer.setup()
     graph=builder.compile(checkpointer=checkpointer)
