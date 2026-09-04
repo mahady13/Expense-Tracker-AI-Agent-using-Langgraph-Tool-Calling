@@ -24,7 +24,7 @@ jobs:
       - name: Check python syntax
         run: |
           python -m py_compile allinone.py
-          python -m py_compile streamlit.py
+          python -m py_compile frontend.py
 
 
       
