@@ -6,7 +6,7 @@ import os
 st.title("Expense Tracker AI Assistant v3")
 
 
-API_URL=os.getenv("API_URL")
+API_URL=os.getenv("API_URL","http://localhost:8000")
 
 if "thread_id" not in st.session_state:
     st.session_state["thread_id"]=str(uuid.uuid4())
@@ -40,8 +40,6 @@ if user_input:
     if response.status_code != 200:
         st.error(f"Backend error {response.status_code}: {response.text}")
         st.stop()
-
-    data = response.json()
 
     data=response.json()
 

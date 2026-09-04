@@ -2,12 +2,13 @@ import os
 import uuid
 from dotenv import load_dotenv
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
+
+
 from langchain_groq import ChatGroq
 import sqlite3
 import langgraph
-import aiosqlite
 import asyncpg
+import uvicorn
 from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.types import interrupt
@@ -118,109 +119,6 @@ async def init_db():
     await db.create_table()
 
 
-
-# db_name="expenses.db"
-# def get_connection():
-#     return sqlite3.connect(db_name)
-
-# def create_database():
-#     connection=get_connection()
-#     cursor=connection.cursor()
-#     cursor.execute(
-#         """
-#         CREATE TABLE IF NOT EXISTS expenses(
-#         expense_id INTEGER PRIMARY KEY AUTOINCREMENT,
-#         user_id TEXT NOT NULL,
-#         amount REAL NOT NULL,
-#         category TEXT NOT NULL,
-#         description TEXT,
-#         date TEXT 
-#         )
-#         """
-#     )
-#     connection.commit()
-#     connection.close()
-
-# def add_expense(user_id:str,amount:float,category:str,description:str,date:str):
-#     connection=get_connection()
-#     cursor=connection.cursor()
-#     cursor.execute(
-#         """
-#         INSERT INTO expenses(
-#         user_id,amount,category,description,date)
-#         VALUES (?,?,?,?,?)
-#         """,(user_id,amount,category,description,date)
-#     )
-#     expense=cursor.lastrowid
-#     connection.commit()
-#     connection.close()
-#     return f"Expense {expense} added successfully"
-
-# def list_expenses(user_id:str):
-#     connection=get_connection()
-#     cursor=connection.cursor()
-#     cursor.execute(
-#         """
-#         SELECT expense_id, amount, category, description, date FROM expenses WHERE user_id=? ORDER BY expense_id
-#         """,(user_id,)
-#     )
-#     expenses=cursor.fetchall()
-#     connection.close()
-#     return expenses
-
-# def get_expenses(user_id:str,expense_id:int):
-#     connection=get_connection()
-#     cursor=connection.cursor()
-
-#     cursor.execute(
-#         """
-#         SELECT * FROM expenses WHERE expense_id=? AND user_id=?
-#         """,(expense_id,user_id)
-#     )
-#     expense=cursor.fetchone()
-#     connection.close()
-
-#     return expense
-
-# def get_summary(user_id:str,category:str|None=None):
-#     connection=get_connection()
-#     cursor=connection.cursor()
-#     if user_id:
-#         if category:
-#             cursor.execute(
-#                 """
-#                 SELECT category,SUM(amount) FROM expenses WHERE category=? AND user_id=? GROUP BY category
-#                 """,(category,user_id)
-#             )
-#         else:
-#             cursor.execute(
-#                 """
-#                 SELECT category,SUM(amount) FROM expenses WHERE user_id=? GROUP BY category
-#                 """,(user_id,)
-#             )
-#         expense=cursor.fetchall()
-#         connection.close()
-#         return expense
-#     else:
-#         return "Provide user id please"
-
-# def delete_expense(user_id:str,expense_id:int):
-#     connection=get_connection()
-#     cursor=connection.cursor()
-
-#     cursor.execute(
-#         """
-#         DELETE FROM expenses WHERE expense_id=? AND user_id=?
-#         """,(expense_id,user_id)
-#     )
-#     expense=cursor.rowcount>0
-#     connection.commit()
-#     connection.close()
-#     return expense
-# create_database()
-
-#langgraph state
-
 class AgentState(MessagesState):
     confirmed:bool
     notice:str
@@ -271,13 +169,6 @@ async def list_all_expenses_tool(config:RunnableConfig):
 
 tools=[add_expense_tool,get_expense_tool,get_summary_tool,delete_expense_tool,list_all_expenses_tool]
 
-#llm
-# llm=ChatOpenAI(
-#     base_url="https://openrouter.ai/api/v1",
-#     api_key=os.getenv("OPENROUTER_API_KEY"),
-#     model="openrouter/free",
-#     max_tokens=300,
-#     temperature=0 )
 
 llm = ChatGroq(
     model="openai/gpt-oss-120b",
@@ -317,11 +208,6 @@ def delete_request(state:AgentState,config:RunnableConfig):
             args=tool_call["args"]
             if "expense_id" not in args:
                 return "tools"
-            # expense_id=args.get("expense_id")
-            # user_id=config["configurable"]["user_id"]
-            # available=await db.get_expenses(user_id,expense_id)
-            # if available:
-            #     return "confirm_delete"
             return "confirm_delete"
     return "tools"
 
@@ -403,13 +289,12 @@ graph=None
 async def lifespan(app:FastAPI):
     global checkpoint_connection,checkpointer,graph
 
-    checkpointer=AsyncPostgresSaver.from_conn_string(DATABASE_URL)
-    await checkpointer.setup()
-    graph=builder.compile(checkpointer=checkpointer)
-    await init_db()
-    yield
-    await db.close()
-    await checkpointer.close()
+    async with AsyncPostgresSaver.from_conn_string(DATABASE_URL) as checkpointer:
+        await checkpointer.setup()
+        graph=builder.compile(checkpointer=checkpointer)
+        await init_db()
+        yield
+        await db.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
