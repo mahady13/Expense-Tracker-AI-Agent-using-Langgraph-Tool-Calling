@@ -2,8 +2,6 @@ import os
 import uuid
 from dotenv import load_dotenv
 from langchain_core.tools import tool
-
-
 from langchain_groq import ChatGroq
 import sqlite3
 import langgraph
