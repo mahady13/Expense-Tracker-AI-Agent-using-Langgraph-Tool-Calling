@@ -287,21 +287,47 @@ builder.add_edge("execute_delete","llm")
 builder.add_edge("cancel_delete","llm")
 
 
+import sqlite3
+import json
 
-
-checkpointer = None
-graph = None
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global checkpointer, graph
+class SimpleSqliteSaver:
+    def __init__(self, db_path: str = "checkpoint.db"):
+        self.db_path = db_path
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE IF NOT EXISTS checkpoints (thread_id TEXT PRIMARY KEY, checkpoint TEXT)")
+        conn.commit()
+        conn.close()
     
-    checkpointer = SqliteSaver.from_conn_string("checkpoint.db")
+    def get(self, thread_id: str):
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute("SELECT checkpoint FROM checkpoints WHERE thread_id = ?", (thread_id,)).fetchone()
+        conn.close()
+        return json.loads(row[0]) if row else None
     
-    graph = builder.compile(checkpointer=checkpointer)
-    await init_db()
-    yield
-    await db.close()
+    def put(self, thread_id: str, checkpoint: dict):
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("INSERT OR REPLACE INTO checkpoints (thread_id, checkpoint) VALUES (?, ?)", 
+                     (thread_id, json.dumps(checkpoint)))
+        conn.commit()
+        conn.close()
+
+# In lifespan:
+checkpointer = SimpleSqliteSaver("checkpoint.db")
+graph = builder.compile(checkpointer=checkpointer)
+
+# checkpointer = None
+# graph = None
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global checkpointer, graph
+    
+#     checkpointer = SqliteSaver.from_conn_string("checkpoint.db")
+    
+#     graph = builder.compile(checkpointer=checkpointer)
+#     await init_db()
+#     yield
+#     await db.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
