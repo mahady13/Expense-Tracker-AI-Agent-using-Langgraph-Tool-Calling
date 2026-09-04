@@ -11,7 +11,7 @@ from langchain_core.messages import SystemMessage
 from langgraph.graph import START,StateGraph,MessagesState,END
 from langgraph.types import interrupt
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver  
+from langgraph.checkpoint.sqlite import SqliteSaver  
 import aiosqlite
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
@@ -296,15 +296,12 @@ graph = None
 async def lifespan(app: FastAPI):
     global checkpointer, graph
     
-    checkpoint_connection = await aiosqlite.connect("checkpoint.db")
-    checkpointer = AsyncSqliteSaver(checkpoint_connection)
-    await checkpointer.setup()
+    checkpointer = SqliteSaver.from_conn_string("checkpoint.db")
     
     graph = builder.compile(checkpointer=checkpointer)
     await init_db()
     yield
     await db.close()
-    await checkpoint_connection.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
