@@ -312,22 +312,17 @@ class SimpleSqliteSaver:
         conn.close()
 
 # In lifespan:
-checkpointer = SimpleSqliteSaver("checkpoint.db")
-graph = builder.compile(checkpointer=checkpointer)
+from langgraph.checkpoint import MemorySaver
 
-# checkpointer = None
-# graph = None
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     global checkpointer, graph
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global checkpointer, graph
     
-#     checkpointer = SqliteSaver.from_conn_string("checkpoint.db")
-    
-#     graph = builder.compile(checkpointer=checkpointer)
-#     await init_db()
-#     yield
-#     await db.close()
+    checkpointer = MemorySaver()
+    graph = builder.compile(checkpointer=checkpointer)
+    await init_db()
+    yield
+    await db.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
