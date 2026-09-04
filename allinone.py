@@ -295,12 +295,14 @@ graph=None
 async def lifespan(app:FastAPI):
     global checkpoint_connection,checkpointer,graph
 
-    async with AsyncPostgresSaver.from_conn_string(DATABASE_URL) as checkpointer:
-        await checkpointer.setup()
-        graph=builder.compile(checkpointer=checkpointer)
-        await init_db()
-        yield
-        await db.close()
+    # ✅ Option 2: Or create Postgres checkpointer with prepare_threshold=0
+    connection = await asyncpg.connect(DATABASE_URL, prepare_threshold=0)
+    checkpointer = AsyncPostgresSaver(connection)
+    await checkpointer.setup()
+    graph=builder.compile(checkpointer=checkpointer)
+    await init_db()
+    yield
+    await db.close()
     
 #fastapi
 app=FastAPI(title="Expense Tracker AI(Production Grade)",lifespan=lifespan)
