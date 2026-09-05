@@ -7,6 +7,9 @@ Actions, and Render**.
 The project demonstrates how to take an LLM-based tool-calling
 application from local development to a containerized, CI/CD-enabled
 deployment.
+https://img.shields.io/badge/Deployed%2520on-Render-46E3B7?style=for-the-badge&logo=render
+https://img.shields.io/badge/Built%2520with-LangGraph-1C3C6C?style=for-the-badge&logo=python
+https://img.shields.io/badge/License-MIT-green?style=for-the-badge
 
 ## 🚀 Features
 
